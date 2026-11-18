@@ -17,6 +17,9 @@ We used only the organiser package. It has two partitions:
 
 (source: `results/m1/inventory_summary.csv`, `trip_level_stats.csv`; figure `../../results/m1/network_size.png`)
 
+![Road-network size per trip (train)](../../results/m1/network_size.png)
+*Figure: Road-network size per trip (train).*
+
 Each trip has four whitespace-separated files without headers and with Windows (CRLF) line endings:
 `.track` (lon, lat, t in seconds, **longitude first**), `.nodes` (lon, lat; row number = node id),
 `.arcs` (from_node, to_node; row number = arc id; arcs are **directed**) and `.route` (the ordered arcs the vehicle
@@ -59,6 +62,9 @@ The evaluator trips are not in our package and were never touched.
 
 (source: `results/m1/quality_summary.csv`; figure `../../results/m1/dt_hist.png`, log y-axis)
 
+![Sampling-interval histogram, log y-axis (train)](../../results/m1/dt_hist.png)
+*Figure: Sampling-interval histogram, log y-axis (train).*
+
 Timestamps are clean (no NaNs, strictly increasing), so no rows had to be dropped. The sampling is not uniform
 though: the data is mostly 1 Hz, but half of the train trips contain at least one gap longer than 10 s and the
 largest gap is days long. A speed or heading computed across such a gap is meaningless, so I mark the point with
@@ -70,6 +76,9 @@ them instead of deleting them.
 Trips come from all over the world: centroid latitude −34.6° to 61.2° and longitude −100.3° to 137.2° in train
 (`../../results/m1/world_centroids.png`). So absolute coordinates are useless as model features (they would not
 generalise to unseen places), and distances must be computed in a metric projection per trip, not in degrees.
+
+![Trip centroids worldwide (train + student_test)](../../results/m1/world_centroids.png)
+*Figure: Trip centroids worldwide (train + student_test).*
 
 ## 2.5 Road network and reference routes
 
@@ -89,6 +98,9 @@ generalise to unseen places), and distances must be computed in a metric project
 - The distance from GPS points to the nearest route arc is small for most trips: the median over trips of the
   per-trip median is about 4.6 m (student_test 4.7 m). This is the label-independent quantity used to detect offset trips.
   (`../../results/m1/gps_to_route_boxplot_train.png`)
+
+![GPS-to-reference-route distance per trip (train)](../../results/m1/gps_to_route_boxplot_train.png)
+*Figure: GPS-to-reference-route distance per trip (train).*
 
 **Offset trips.** The rule is: a trip is flagged if its *median* GPS-to-route distance is above 50 m. This rule needs no
 labels and no hand-picking. In train it flags exactly two trips, **00000033** and **00000054**:
@@ -126,6 +138,9 @@ trip has `cand_miss_rate = 0.0` and the average number of candidates per observa
 and one sentence on why 50 m is the compromise: larger R lowers the miss rate but multiplies the rows the classifier has to score.]**
 Figure: `../../results/m1/miss_rate_vs_radius.png`.
 
+![Candidate miss rate vs. search radius (train)](../../results/m1/miss_rate_vs_radius.png)
+*Figure: Candidate miss rate vs. search radius (train).*
+
 ## 2.8 Features and why
 
 23 features per (observation, candidate) pair, listed in `artifacts/feature_list.json`. No absolute coordinates are used.
@@ -160,3 +175,6 @@ The interactive map of trip 00000046 is `../../results/maps/eda_00000046.html` (
 in the PDF; it is produced when `make_maps.py` is run with `--png`). It shows the road network in grey, raw GPS points in blue and the
 reference route in green. **[FILL: 2 sentences about what you see in the map, for example how closely the GPS follows the green route and where it deviates.]**
 Trip 00000046 has a small network (649 arcs) and a 95th percentile GPS→route distance of about 21 m, which is on the higher side for the trips in our summaries.
+
+![Folium map of train trip 00000046: road network (grey), raw GPS (blue), reference route (green)](../../results/maps/eda_00000046.png)
+*Figure: Folium map of train trip 00000046: road network (grey), raw GPS (blue), reference route (green).*

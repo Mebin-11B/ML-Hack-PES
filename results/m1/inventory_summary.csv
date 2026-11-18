@@ -1,0 +1,3 @@
+split,trips,files_per_trip,total_points,points_min,points_median,points_max,nodes_min,nodes_max,arcs_min,arcs_max,size_mb_total
+student_test,10,4.0,19160,262,1420.0,3958,1770,26635,3577,56027,4.368591
+train,80,4.0,208417,361,1529.0,19313,299,155003,649,307392,89.737452
