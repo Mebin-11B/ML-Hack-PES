@@ -4,12 +4,12 @@
 
 **Repository:** https://github.com/Mebin-11B/ML-Hack-PES
 
-| Member | Role |
-|---|---|
-| Team Member 1 | Data processing, EDA, candidate generation, feature engineering, Folium EDA maps |
-| Team Member 2 | Model experimentation (9 models), model selection, Bayesian hyperparameter optimisation |
-| Team Member 3 | Ground-truth route alignment, metrics, HMM/Viterbi decoding, prediction pipeline, scoring |
-| Team Member 4 (lead) | Integration, FastAPI backend, evaluator UI, ZeroTier deployment, report assembly |
+| Member | Name | SRN | Role |
+|---|---|---|---|
+| Team Member 1 | Roshini Madisetty | PES2UG24CS256 | Data processing, EDA, candidate generation, feature engineering, Folium EDA maps |
+| Team Member 2 | Moorty Perepa | PES2UG24CS248 | Model experimentation (9 models), model selection, Bayesian hyperparameter optimisation |
+| Team Member 3 | Mueez Ahmed | PES2UG24CS286 | Ground-truth route alignment, metrics, HMM/Viterbi decoding, prediction pipeline, scoring |
+| Team Member 4 (lead) | Mebin J Thattil | PES2UG24CS273 | Integration, FastAPI backend, evaluator UI, ZeroTier deployment, report assembly |
 
 ## 1. Overview
 
