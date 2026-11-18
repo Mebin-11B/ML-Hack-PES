@@ -26,6 +26,8 @@ def main():
         map_cases.append((top1_accuracy(pred['obs_arc'],gt,valid)-top1_accuracy(pred['obs_arc_clf'],gt,valid),trip,pred))
         print(f"{trip.trip_id}: HMM top1={rows[-1]['Top-1']:.3f}, F1={rows[-1]['route F1']:.3f}, {elapsed:.2f}s")
     out=Path(a.out); out.parent.mkdir(parents=True,exist_ok=True); df=pd.DataFrame(rows); df.to_csv(out,index=False)
+    summary=df.groupby('method')[['Top-1','undirected Top-1','route F1','continuity','breaks']].mean().reset_index()
+    summary.to_csv(out.parent/'clf_vs_hmm_summary.csv',index=False)
     print('Mean by method:'); print(df.groupby('method')[['Top-1','undirected Top-1','route F1','continuity','breaks','runtime_s']].mean().to_string())
     # Choose map examples from measured classifier-to-HMM changes, not a hardcoded trip.
     for tag,case in [('helps',max(map_cases,key=lambda x:x[0])),('fails',min(map_cases,key=lambda x:x[0]))]:
