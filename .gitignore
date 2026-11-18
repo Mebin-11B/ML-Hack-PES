@@ -20,3 +20,12 @@ __pycache__/
 venv/
 .ipynb_checkpoints/
 .env
+
+# local-only (M2 machine)
+.claude/
+.generated/
+docs/
+.path_snap_env/
+# M2: synthetic smoke-test output (never reported) + regenerable per-model predictions
+results/m2/toy/
+results/m2/preds/
