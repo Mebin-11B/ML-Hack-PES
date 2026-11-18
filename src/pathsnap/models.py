@@ -15,6 +15,7 @@ Contents
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +45,8 @@ except ImportError:  # pragma: no cover
     xgb = None
 
 RANDOM_STATE = 42
+# "cuda" trains XGBoost on the GPU (only XGBoost has GPU support in our stack). Set via --device.
+DEVICE = os.environ.get("PATHSNAP_DEVICE", "cpu")
 KEYS = ["trip_id", "obs_idx"]
 EPS = 1e-7
 
@@ -113,7 +116,7 @@ MODEL_SPECS: dict[str, ModelSpec] = {
     "xgb": ModelSpec(
         "xgb", "boosting (XGBoost)",
         dict(n_estimators=500, learning_rate=0.05, max_depth=6),
-        lambda p: xgb.XGBClassifier(random_state=RANDOM_STATE, n_jobs=-1, tree_method="hist",
+        lambda p: xgb.XGBClassifier(random_state=RANDOM_STATE, n_jobs=-1, tree_method="hist", device=DEVICE,
                                     eval_metric="logloss", early_stopping_rounds=30, **p),
         early_stop="xgb", available=xgb is not None,
     ),
@@ -197,6 +200,17 @@ def load_feature_list(path: str | Path) -> list[str]:
     if isinstance(obj, dict):
         obj = obj.get("features", obj.get("feature_list"))
     return [o["name"] if isinstance(o, dict) else str(o) for o in obj]
+
+
+def label_source(root: str | Path, split: str) -> str:
+    """Label provenance recorded by M1's build_dataset.py (results/m1/trip_summary_<split>.csv).
+    'fallback_nearest_route_arc' = nearest route arc (M3 alignment not yet available): the true arc is
+    always a candidate by construction, so candidate miss rate is NOT meaningful and must not be reported."""
+    p = Path(root) / "results" / "m1" / f"trip_summary_{split}.csv"
+    if not p.exists():
+        return "unknown"
+    vals = sorted(pd.read_csv(p, usecols=["label_source"])["label_source"].astype(str).unique())
+    return "+".join(vals)
 
 
 def subsample_obs(df: pd.DataFrame, every: int) -> pd.DataFrame:

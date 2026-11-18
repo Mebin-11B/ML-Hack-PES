@@ -109,7 +109,7 @@ def main():
         if p is None:
             continue
         p = p[p.label_valid.astype(bool)]
-        fy, mp = calibration_curve(p.label, p.p, n_bins=15, strategy="quantile")
+        fy, mp = calibration_curve(p.label, p.p, n_bins=10, strategy="uniform")
         ax.plot(mp, fy, marker="o", ms=3, label=name)
     ax.set_xlabel("mean predicted probability"); ax.set_ylabel("fraction positive")
     ax.set_title("Reliability (student_test)"); ax.legend()

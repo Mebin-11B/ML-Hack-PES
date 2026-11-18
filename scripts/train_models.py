@@ -28,14 +28,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from pathsnap.models import (MODEL_SPECS, RANDOM_STATE, TOY_FEATURES, eval_student_test,  # noqa: E402
-                             load_feature_list, make_toy_table, run_cv, subsample_obs)
+                             label_source, load_feature_list, make_toy_table, run_cv,
+                             subsample_obs)
 
 COLUMNS = ["model", "family", "key_config", "cv_macro_f1_mean", "cv_macro_f1_std", "cv_top1_mean",
            "cv_top1_std", "cv_logloss", "st_top1", "st_macro_f1", "st_precision", "st_recall",
            "st_logloss", "route_continuity", "train_time_s", "infer_ms_per_1k", "n_train_rows", "seed",
            # extras (kept after the report-table columns)
            "cv_train_top1_mean", "st_undirected_top1", "st_miss_rate", "route_breaks", "n_folds",
-           "obs_every", "tag"]
+           "obs_every", "tag", "label_source", "device"]
 
 
 def upsert_csv(path: Path, rows: pd.DataFrame, key: list[str]):
@@ -68,8 +69,12 @@ def main():
     ap.add_argument("--obs-every", type=int, default=1, help="keep every k-th observation per trip (train)")
     ap.add_argument("--tag", default="", help="suffix for output files, e.g. v0")
     ap.add_argument("--out", default="results/m2")
+    ap.add_argument("--device", choices=["cpu", "cuda"], default="cpu",
+                    help="cuda = train XGBoost on the GPU (other models are CPU-only)")
     ap.add_argument("--toy", action="store_true", help="synthetic data smoke test")
     args = ap.parse_args()
+    import pathsnap.models as _m
+    _m.DEVICE = args.device
 
     out = ROOT / args.out / ("toy" if args.toy else "")
     for sub in ("", "configs", "histories", "preds", "logs"):
@@ -85,11 +90,14 @@ def main():
         df_tr = make_toy_table(n_trips=15, seed=RANDOM_STATE)
         df_te = make_toy_table(n_trips=4, seed=RANDOM_STATE + 1)
         features, raw_test = TOY_FEATURES, None
+        labels = "toy"
     else:
         df_tr = pd.read_parquet(ROOT / args.train)
         df_te = pd.read_parquet(ROOT / args.test)
         features = load_feature_list(ROOT / args.features)
         raw_test = ROOT / args.raw_test_dir if (ROOT / args.raw_test_dir).exists() else None
+        labels = f"train={label_source(ROOT, 'train')}; student_test={label_source(ROOT, 'student_test')}"
+    fallback = "fallback" in labels
     for d in (df_tr, df_te):
         d["trip_id"] = d["trip_id"].astype(str)
         d["label_valid"] = d["label_valid"].astype(bool)
@@ -97,6 +105,8 @@ def main():
     missing = [f for f in features if f not in df_tr.columns]
     if missing:
         raise SystemExit(f"features missing from parquet: {missing}")
+    log.info("labels: %s%s", labels,
+             " -> candidate miss rate is 0 by construction and is NOT reported" if fallback else "")
     log.info("train rows=%d trips=%d | test rows=%d trips=%d | %d features | obs_every=%d",
              len(df_tr), df_tr.trip_id.nunique(), len(df_te), df_te.trip_id.nunique(),
              len(features), args.obs_every)
@@ -117,14 +127,19 @@ def main():
             continue
         row = {"model": name, "family": spec.family, "key_config": spec.key_config(), **cv,
                **{k: v for k, v in st.items() if k not in ("model", "history", "p_test", "st_confusion")},
-               "seed": RANDOM_STATE, "n_folds": args.folds, "obs_every": args.obs_every, "tag": args.tag}
+               "seed": RANDOM_STATE, "n_folds": args.folds, "obs_every": args.obs_every, "tag": args.tag,
+               "label_source": labels, "device": args.device if name == "xgb" else "cpu"}
+        if fallback:
+            row["st_miss_rate"] = float("nan")
+            for f in folds:
+                f["val_miss_rate"] = float("nan")
         upsert_csv(out / f"model_comparison{sfx}.csv", pd.DataFrame([row])[COLUMNS], ["model"])
         upsert_csv(out / f"cv_folds{sfx}.csv", pd.DataFrame(folds), ["model", "fold"])
         (out / "configs" / f"{name}{sfx}.json").write_text(json.dumps({
             "model": name, "family": spec.family, "params": spec.params,
             "max_train_rows": spec.max_train_rows, "early_stop": spec.early_stop, "seed": RANDOM_STATE,
             "features": features, "folds": args.folds, "obs_every": args.obs_every,
-            "st_confusion": st["st_confusion"], "python": platform.python_version()}, indent=2, default=str))
+            "st_confusion": st["st_confusion"], "label_source": labels, "python": platform.python_version()}, indent=2, default=str))
         if st["history"]:
             (out / "histories" / f"{name}{sfx}.json").write_text(json.dumps(st["history"]))
         save_preds(out / "preds" / f"st_{name}{sfx}", df_te, st["p_test"])

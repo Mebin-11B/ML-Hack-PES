@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from pathsnap.models import (MODEL_SPECS, RANDOM_STATE, TOY_FEATURES, cap_rows_by_obs,  # noqa: E402
-                             eval_student_test, fit_model, load_feature_list, make_pipeline,
+                             eval_student_test, fit_model, label_source, load_feature_list, make_pipeline,
                              make_toy_table, obs_metrics, pair_metrics, run_cv, subsample_obs)
 
 
@@ -106,8 +106,12 @@ def main():
     ap.add_argument("--raw-test-dir", default="data/raw/student_test")
     ap.add_argument("--tag", default="")
     ap.add_argument("--skip-compare", action="store_true", help="skip tuned-vs-untuned table")
+    ap.add_argument("--device", choices=["cpu", "cuda"], default="cpu",
+                    help="cuda = train XGBoost on the GPU (other models are CPU-only)")
     ap.add_argument("--toy", action="store_true")
     args = ap.parse_args()
+    import pathsnap.models as _m
+    _m.DEVICE = args.device
 
     out = ROOT / "results/m2" / ("toy" if args.toy else "")
     for sub in ("", "plots", "logs"):
@@ -121,10 +125,12 @@ def main():
     if args.toy:
         df_tr, df_te = make_toy_table(15, seed=RANDOM_STATE), make_toy_table(4, seed=RANDOM_STATE + 1)
         features, raw_test = TOY_FEATURES, None
+        labels = "toy"
     else:
         df_tr, df_te = pd.read_parquet(ROOT / args.train), pd.read_parquet(ROOT / args.test)
         features = load_feature_list(ROOT / args.features)
         raw_test = ROOT / args.raw_test_dir if (ROOT / args.raw_test_dir).exists() else None
+        labels = f"train={label_source(ROOT, 'train')}; student_test={label_source(ROOT, 'student_test')}"
     for d in (df_tr, df_te):
         d["trip_id"] = d["trip_id"].astype(str)
         d["label_valid"] = d["label_valid"].astype(bool)
@@ -186,7 +192,7 @@ def main():
         "n_pruned": sum(t.state == optuna.trial.TrialState.PRUNED for t in study.trials),
         "folds": args.folds, "obs_every": args.obs_every, "sampler": "TPESampler(seed=42)",
         "pruner": "MedianPruner(n_startup_trials=5, n_warmup_steps=1)", "wall_time_s": wall,
-        "toy": bool(args.toy),
+        "toy": bool(args.toy), "label_source": labels, "device": args.device,
     }
     (out / f"optuna_best_params{sfx}.json").write_text(json.dumps(best_json, indent=2, default=str))
     log.info("best trial %d value %.4f in %.0fs: %s", best.number, best.value, wall, best.params)
@@ -222,7 +228,7 @@ def main():
                      "st_macro_f1": st["st_macro_f1"], "st_logloss": st["st_logloss"],
                      "route_continuity": st["route_continuity"], "train_time_s": st["train_time_s"],
                      "infer_ms_per_1k": st["infer_ms_per_1k"], "folds": args.folds,
-                     "obs_every": args.obs_every})
+                     "obs_every": args.obs_every, "label_source": labels})
         log.info("%s: CV top1 %.4f logloss %.4f | ST top1 %.4f logloss %.4f", variant,
                  cv["cv_top1_mean"], cv["cv_logloss"], st["st_top1"], st["st_logloss"])
     pd.DataFrame(rows).to_csv(out / f"tuned_vs_untuned{sfx}.csv", index=False)

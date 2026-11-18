@@ -36,7 +36,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from pathsnap.models import (MODEL_SPECS, RANDOM_STATE, TOY_FEATURES, _final_step,  # noqa: E402
-                             eval_student_test, load_feature_list, make_toy_table, obs_metrics,
+                             eval_student_test, label_source, load_feature_list, make_toy_table, obs_metrics,
                              subsample_obs)
 
 
@@ -111,8 +111,12 @@ def main():
     ap.add_argument("--obs-every", type=int, default=1, help="1 = use every observation (final model)")
     ap.add_argument("--max-train-rows", default="spec", help="'spec' (model default cap), 'none', or an int")
     ap.add_argument("--no-importance", action="store_true")
+    ap.add_argument("--device", choices=["cpu", "cuda"], default="cpu",
+                    help="cuda = train XGBoost on the GPU (other models are CPU-only)")
     ap.add_argument("--toy", action="store_true")
     args = ap.parse_args()
+    import pathsnap.models as _m
+    _m.DEVICE = args.device
 
     spec = MODEL_SPECS[args.model]
     res_dir = ROOT / "results/m2" / ("toy" if args.toy else "")
@@ -134,10 +138,12 @@ def main():
     if args.toy:
         df_tr, df_te = make_toy_table(15, seed=RANDOM_STATE), make_toy_table(4, seed=RANDOM_STATE + 1)
         features, raw_test = TOY_FEATURES, None
+        labels = "toy"
     else:
         df_tr, df_te = pd.read_parquet(ROOT / args.train), pd.read_parquet(ROOT / args.test)
         features = load_feature_list(ROOT / args.features)
         raw_test = ROOT / args.raw_test_dir if (ROOT / args.raw_test_dir).exists() else None
+        labels = f"train={label_source(ROOT, 'train')}; student_test={label_source(ROOT, 'student_test')}"
     for d in (df_tr, df_te):
         d["trip_id"] = d["trip_id"].astype(str)
         d["label_valid"] = d["label_valid"].astype(bool)
@@ -148,6 +154,10 @@ def main():
                            raw_test_dir=raw_test, max_train_rows=cap)
     est = st["model"]
 
+    # Laptop 1 may have no GPU: an XGBoost model trained on cuda is switched to CPU inference before saving
+    f = _final_step(est)
+    if hasattr(f, "get_params") and f.get_params().get("device", "cpu") != "cpu":
+        f.set_params(device="cpu")
     joblib.dump(est, art_dir / "model.joblib", compress=3)
     full_params = {**spec.params, **params}
     st_scores = {k: st[k] for k in ("st_top1", "st_undirected_top1", "st_miss_rate", "st_macro_f1",
@@ -168,7 +178,14 @@ def main():
         "train_date": datetime.now().isoformat(timespec="seconds"),
         "seed": RANDOM_STATE, "library_versions": lib_versions(),
         "toy": bool(args.toy),
+        "train_device": args.device if args.model == "xgb" else "cpu",
+        "label_source": labels,
+        "notes": ("Labels are M1's fallback (nearest route arc) because M3's route alignment was not yet "
+                  "available: candidate miss rate is 0 by construction and is not reported. Rebuild the "
+                  "parquets and re-export once M3's labels.py is in.") if "fallback" in labels else "",
     }
+    if "fallback" in labels:
+        card["student_test"]["st_miss_rate"] = None
     (art_dir / "model_card.json").write_text(json.dumps(card, indent=2, default=str))
     print(f"wrote {art_dir / 'model.joblib'} and model_card.json | ST top1 {st['st_top1']:.4f} "
           f"logloss {st['st_logloss']:.4f}")
