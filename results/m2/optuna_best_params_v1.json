@@ -1,0 +1,40 @@
+{
+  "model": "lgbm",
+  "params": {
+    "n_estimators": 2000,
+    "num_leaves": 185,
+    "learning_rate": 0.026541372792969226,
+    "min_child_samples": 19,
+    "colsample_bytree": 0.8394943247153117,
+    "subsample": 0.7446055250229716,
+    "subsample_freq": 1,
+    "reg_alpha": 0.0018666534433706083,
+    "reg_lambda": 0.0032744431741189976
+  },
+  "raw_trial_params": {
+    "num_leaves": 185,
+    "learning_rate": 0.026541372792969226,
+    "min_child_samples": 19,
+    "colsample_bytree": 0.8394943247153117,
+    "subsample": 0.7446055250229716,
+    "reg_alpha": 0.0018666534433706083,
+    "reg_lambda": 0.0032744431741189976
+  },
+  "best_value": 0.918597990856224,
+  "objective": "mean GroupKFold obs top1",
+  "cv_top1": 0.918597990856224,
+  "cv_logloss": 0.0403812475549267,
+  "cv_macro_f1": 0.9511865563878418,
+  "best_trial": 41,
+  "n_trials": 50,
+  "n_complete": 27,
+  "n_pruned": 23,
+  "folds": 3,
+  "obs_every": 4,
+  "sampler": "TPESampler(seed=42)",
+  "pruner": "MedianPruner(n_startup_trials=5, n_warmup_steps=1)",
+  "wall_time_s": 1354.1941164000018,
+  "toy": false,
+  "label_source": "train=M3_alignment; student_test=M3_alignment",
+  "device": "cpu"
+}

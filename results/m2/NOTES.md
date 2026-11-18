@@ -15,5 +15,31 @@
     construction and is not reported** (blanked in the CSVs and model card).
   - When M3's alignment is pushed, the parquets are rebuilt and the sweep is re-run **before** final model selection
     and Optuna tuning. v0 numbers are for the first evaluation / early integration only.
+- **Metrics:** from 12:30 on, pair metrics and Top-1 are computed with M3's shared `src/pathsnap/metrics.py`.
+  Checked on the saved v0 student_test predictions: accuracy, precision, recall, F1, macro-F1, Top-1, confusion
+  matrices and per-trip route continuity are identical to the earlier M2 implementation; only log loss differs for
+  models that output exact 0/1 probabilities (GNB, KNN), because the team clips at 1e-9 (M2 previously 1e-7).
+  v0 CSVs were produced with the old clipping.
 - **Early export:** the best untuned v0 model is exported to `artifacts/` so M3 / M4 can integrate; it is replaced by the
   tuned model later (`artifacts/model_card.json` says which).
+
+## v1 (`*_v1.*` files) — M3 labels
+- **Labels:** M3's order-preserving route alignment (`src/pathsnap/labels.py`, `label_source = M3_alignment` for all 90
+  trips). Parquets rebuilt with M1's `build_dataset.py` at 12:28 (same rows/candidates as v0; only labels changed).
+  Ground-truth arc differs from the v0 fallback on 5.57 % of train points and 6.71 % of student_test points that are
+  valid under both; valid share 85.8 % (train), 99.2 % (student_test). Candidate miss rate is meaningful again:
+  0.0001 (train valid points), 0.0000 (student_test).
+- **Optuna (`optuna_trials_v1.csv`, `optuna_best_params_v1.json`, `tuned_vs_untuned_v1.csv`):** LightGBM, TPE sampler
+  (seed 42), median pruner, objective = mean 3-fold GroupKFold observation Top-1 on the train trips (78 with valid
+  points — the 2 flagged offset trips have none; every 4th GPS
+  point), 50 trials / 40 min cap. student_test is used only after the study, for the tuned-vs-untuned table.
+- **Optuna result:** 50 trials (27 complete, 23 pruned), 1,354 s. Best = trial 41, CV Top-1 0.91860 (trial 5 had
+  already reached 0.91858). Best params: num_leaves 185, learning_rate 0.0265, min_child_samples 19,
+  colsample_bytree 0.839, subsample 0.745, reg_alpha 0.0019, reg_lambda 0.0033 (≤2000 trees, early stopping).
+  Most important hyperparameter (fANOVA): colsample_bytree 0.47, then reg_alpha 0.18, min_child_samples 0.16.
+- **Tuned vs untuned:** `tuned_vs_untuned_v1.csv` (same 3 folds and every-4th-point training rows for both) and
+  `tuned_vs_untuned_fulldata_v1.csv` (both refit on all 2,064,331 valid train rows, scored on student_test).
+  Tuning improves CV Top-1 by +0.30 pt and student_test log loss, macro-F1, undirected Top-1 and route continuity,
+  but student_test Top-1 is flat (+0.03 pt subsampled, −0.11 pt full data) — within noise for 10 trips.
+- **Exported:** `artifacts/model.joblib` = tuned LightGBM refit on all valid train rows (360 trees),
+  student_test Top-1 0.9148, log loss 0.0364.
