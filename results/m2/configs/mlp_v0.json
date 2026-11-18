@@ -1,0 +1,56 @@
+{
+  "model": "mlp",
+  "family": "neural network",
+  "params": {
+    "hidden_layer_sizes": [
+      64,
+      32
+    ],
+    "activation": "relu",
+    "solver": "adam",
+    "early_stopping": true,
+    "max_iter": 200
+  },
+  "max_train_rows": null,
+  "early_stop": null,
+  "seed": 42,
+  "features": [
+    "dist_m",
+    "dist_rank",
+    "dist_minus_min",
+    "dist_ratio",
+    "n_cands",
+    "heading_cos",
+    "heading_sin_abs",
+    "speed_mps",
+    "arc_len_m",
+    "proj_frac",
+    "dist_to_end_m",
+    "has_twin",
+    "win2_mean_dist",
+    "win5_mean_dist",
+    "win5_rel",
+    "win5_heading_cos",
+    "from_deg",
+    "to_deg",
+    "dt_prev",
+    "dt_next",
+    "gap_flag",
+    "accel",
+    "dist_z"
+  ],
+  "folds": 5,
+  "obs_every": 4,
+  "st_confusion": [
+    [
+      216524,
+      2817
+    ],
+    [
+      2633,
+      16384
+    ]
+  ],
+  "label_source": "train=fallback_nearest_route_arc; student_test=fallback_nearest_route_arc",
+  "python": "3.11.9"
+}

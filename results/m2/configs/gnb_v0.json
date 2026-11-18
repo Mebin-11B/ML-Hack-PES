@@ -1,0 +1,49 @@
+{
+  "model": "gnb",
+  "family": "probabilistic (naive Bayes)",
+  "params": {
+    "var_smoothing": 1e-09
+  },
+  "max_train_rows": null,
+  "early_stop": null,
+  "seed": 42,
+  "features": [
+    "dist_m",
+    "dist_rank",
+    "dist_minus_min",
+    "dist_ratio",
+    "n_cands",
+    "heading_cos",
+    "heading_sin_abs",
+    "speed_mps",
+    "arc_len_m",
+    "proj_frac",
+    "dist_to_end_m",
+    "has_twin",
+    "win2_mean_dist",
+    "win5_mean_dist",
+    "win5_rel",
+    "win5_heading_cos",
+    "from_deg",
+    "to_deg",
+    "dt_prev",
+    "dt_next",
+    "gap_flag",
+    "accel",
+    "dist_z"
+  ],
+  "folds": 5,
+  "obs_every": 4,
+  "st_confusion": [
+    [
+      186119,
+      33222
+    ],
+    [
+      411,
+      18606
+    ]
+  ],
+  "label_source": "train=fallback_nearest_route_arc; student_test=fallback_nearest_route_arc",
+  "python": "3.11.9"
+}
