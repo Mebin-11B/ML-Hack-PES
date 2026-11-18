@@ -1,0 +1,54 @@
+{
+  "model": "hgb",
+  "family": "boosting (sklearn hist)",
+  "params": {
+    "learning_rate": 0.05,
+    "max_leaf_nodes": 31,
+    "max_iter": 500,
+    "early_stopping": true,
+    "validation_fraction": 0.1,
+    "n_iter_no_change": 30
+  },
+  "max_train_rows": null,
+  "early_stop": null,
+  "seed": 42,
+  "features": [
+    "dist_m",
+    "dist_rank",
+    "dist_minus_min",
+    "dist_ratio",
+    "n_cands",
+    "heading_cos",
+    "heading_sin_abs",
+    "speed_mps",
+    "arc_len_m",
+    "proj_frac",
+    "dist_to_end_m",
+    "has_twin",
+    "win2_mean_dist",
+    "win5_mean_dist",
+    "win5_rel",
+    "win5_heading_cos",
+    "from_deg",
+    "to_deg",
+    "dt_prev",
+    "dt_next",
+    "gap_flag",
+    "accel",
+    "dist_z"
+  ],
+  "folds": 5,
+  "obs_every": 4,
+  "st_confusion": [
+    [
+      217558,
+      1690
+    ],
+    [
+      1838,
+      17174
+    ]
+  ],
+  "label_source": "train=M3_alignment; student_test=M3_alignment",
+  "python": "3.11.9"
+}

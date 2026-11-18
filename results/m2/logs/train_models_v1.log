@@ -1,0 +1,21 @@
+2026-11-18 12:57:30,178 INFO labels: train=M3_alignment; student_test=M3_alignment
+2026-11-18 12:57:30,178 INFO train rows=588673 trips=80 | test rows=239684 trips=10 | 23 features | obs_every=4
+2026-11-18 12:57:30,178 INFO === lgbm (boosting (LightGBM)) | n_estimators=500; learning_rate=0.05; num_leaves=31
+2026-11-18 12:57:58,632 INFO lgbm done in 28.4s | CV top1 0.9137±0.0194 macroF1 0.9485 logloss 0.0407 | ST top1 0.9162 macroF1 0.9494
+2026-11-18 12:57:58,632 INFO === xgb (boosting (XGBoost)) | n_estimators=500; learning_rate=0.05; max_depth=6
+2026-11-18 12:58:28,127 INFO xgb done in 29.5s | CV top1 0.9130±0.0197 macroF1 0.9474 logloss 0.0412 | ST top1 0.9158 macroF1 0.9496
+2026-11-18 12:58:28,127 INFO === hgb (boosting (sklearn hist)) | learning_rate=0.05; max_leaf_nodes=31; max_iter=500; early_stopping=True; validation_fraction=0.1; n_iter_no_change=30
+2026-11-18 12:59:51,879 INFO hgb done in 83.7s | CV top1 0.9138±0.0180 macroF1 0.9483 logloss 0.0410 | ST top1 0.9185 macroF1 0.9494
+2026-11-18 12:59:51,879 INFO === logreg (linear / probabilistic) | C=1.0; class_weight=balanced; max_iter=1000
+2026-11-18 13:01:08,160 INFO logreg done in 76.3s | CV top1 0.8984±0.0216 macroF1 0.8599 logloss 0.1316 | ST top1 0.8759 macroF1 0.8421
+2026-11-18 13:01:08,160 INFO === gnb (probabilistic (naive Bayes)) | var_smoothing=1e-09
+2026-11-18 13:01:12,642 INFO gnb done in 4.5s | CV top1 0.8647±0.0199 macroF1 0.7556 logloss 0.9920 | ST top1 0.8412 macroF1 0.7444
+2026-11-18 13:01:12,642 INFO === mlp (neural network) | hidden_layer_sizes=(64, 32); activation=relu; solver=adam; early_stopping=True; max_iter=200
+2026-11-18 13:12:41,300 INFO mlp done in 688.6s | CV top1 0.9095±0.0185 macroF1 0.9428 logloss 0.0511 | ST top1 0.9005 macroF1 0.9393
+2026-11-18 13:12:41,301 INFO === et (ensemble (randomised trees)) | n_estimators=300; max_depth=None; min_samples_leaf=5
+2026-11-18 13:15:12,940 INFO et done in 151.6s | CV top1 0.9058±0.0209 macroF1 0.9433 logloss 0.0468 | ST top1 0.8980 macroF1 0.9373
+2026-11-18 13:15:12,940 INFO === rf (ensemble (bagging)) | n_estimators=300; max_depth=None; min_samples_leaf=5
+2026-11-18 13:20:34,590 INFO rf done in 321.6s | CV top1 0.9136±0.0201 macroF1 0.9472 logloss 0.0419 | ST top1 0.9089 macroF1 0.9452
+2026-11-18 13:20:34,590 INFO === knn (instance-based) | n_neighbors=25; weights=distance
+2026-11-18 13:21:39,786 INFO knn done in 65.2s | CV top1 0.8545±0.0207 macroF1 0.8993 logloss 0.1011 | ST top1 0.8511 macroF1 0.8918
+2026-11-18 13:21:39,786 INFO wrote C:\dev\PES Academics\Sem_5\MachineLearning\Hackathon\results\m2\model_comparison_v1.csv
