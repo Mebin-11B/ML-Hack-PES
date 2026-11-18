@@ -1,0 +1,89 @@
+{
+  "model": "lgbm (untuned)",
+  "model_key": "lgbm",
+  "family": "boosting (LightGBM)",
+  "variant": "untuned",
+  "params": {
+    "n_estimators": 500,
+    "learning_rate": 0.05,
+    "num_leaves": 31
+  },
+  "feature_list": [
+    "dist_m",
+    "dist_rank",
+    "dist_minus_min",
+    "dist_ratio",
+    "n_cands",
+    "heading_cos",
+    "heading_sin_abs",
+    "speed_mps",
+    "arc_len_m",
+    "proj_frac",
+    "dist_to_end_m",
+    "has_twin",
+    "win2_mean_dist",
+    "win5_mean_dist",
+    "win5_rel",
+    "win5_heading_cos",
+    "from_deg",
+    "to_deg",
+    "dt_prev",
+    "dt_next",
+    "gap_flag",
+    "accel",
+    "dist_z"
+  ],
+  "feature_list_sha256": "411e583c7efce552297138701f3ca0ca355b5e13182535efea16bf6f5f29a130",
+  "cv": {
+    "cv_top1_mean": 0.8999815205932531,
+    "cv_top1_std": 0.02420478237683875,
+    "cv_macro_f1_mean": 0.9402980632042448,
+    "cv_macro_f1_std": 0.012870375226102133,
+    "cv_logloss": 0.05416164465455085,
+    "n_folds": 5,
+    "obs_every": 4,
+    "tag": "v0"
+  },
+  "student_test": {
+    "st_top1": 0.8830520060998054,
+    "st_undirected_top1": 0.9493610979649787,
+    "st_miss_rate": null,
+    "st_macro_f1": 0.9298199859894385,
+    "st_precision": 0.8777516563368241,
+    "st_recall": 0.8638586527843508,
+    "st_logloss": 0.0536053873031576,
+    "route_continuity": 0.7364638236703402,
+    "route_breaks": 1100
+  },
+  "st_confusion_thr0.5": [
+    [
+      217053,
+      2288
+    ],
+    [
+      2589,
+      16428
+    ]
+  ],
+  "n_train_rows": 2066706,
+  "obs_every": 1,
+  "train_time_s": 6.958981299991137,
+  "infer_ms_per_1k": 0.5933737754562994,
+  "best_iteration": 173,
+  "train_date": "2026-11-18T12:09:43",
+  "seed": 42,
+  "library_versions": {
+    "python": "3.11.9",
+    "numpy": "2.4.6",
+    "pandas": "3.1.1",
+    "scikit-learn": "1.9.1",
+    "lightgbm": "4.7.0",
+    "xgboost": "3.2.0",
+    "optuna": "5.1.0",
+    "joblib": "1.6.0"
+  },
+  "toy": false,
+  "train_device": "cpu",
+  "label_source": "train=fallback_nearest_route_arc; student_test=fallback_nearest_route_arc",
+  "notes": "Labels are M1's fallback (nearest route arc) because M3's route alignment was not yet available: candidate miss rate is 0 by construction and is not reported. Rebuild the parquets and re-export once M3's labels.py is in."
+}
