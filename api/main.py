@@ -1,1 +1,166 @@
-"""M4 - FastAPI backend: GET /health, GET /trips, POST /predict. Run: uvicorn api.main:app --host 0.0.0.0 --port 8000"""
+"""M4 - PathSnap FastAPI backend (runs on Laptop 1).
+
+Endpoints
+    GET  /health                 -> service status, model name, number of available trips
+    GET  /trips                  -> trips discovered at runtime in PATHSNAP_EVAL_DIR
+    POST /predict {"trip_id"}    -> full prediction pipeline + server-side scoring
+
+Run (Laptop 1):
+    uvicorn api.main:app --host 0.0.0.0 --port 8000
+
+Environment
+    PATHSNAP_EVAL_DIR   folder with one sub-folder per trip (default: data/evaluator_test)
+    PATHSNAP_ARTIFACTS  model/config folder (default: artifacts)
+    PATHSNAP_STUB=1     force the nearest-arc stub predictor (testing before the model exists)
+
+Integrity: the predictor only reads .track/.nodes/.arcs. The reference .route is read only by
+the scoring step, and only aggregate metrics are returned - never the reference route itself.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+import sys
+import time
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))   # works with or without `pip install -e .`
+sys.path.insert(0, str(ROOT))
+
+from api.stub import StubPredictor, stub_score_trip  # noqa: E402
+
+EVAL_DIR = Path(os.environ.get("PATHSNAP_EVAL_DIR", ROOT / "data" / "evaluator_test")).resolve()
+ARTIFACTS = Path(os.environ.get("PATHSNAP_ARTIFACTS", ROOT / "artifacts")).resolve()
+FORCE_STUB = os.environ.get("PATHSNAP_STUB", "0") == "1"
+REQUEST_LOG = ROOT / "results" / "api" / "requests.log"
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S")
+log = logging.getLogger("pathsnap.api")
+
+STATE: dict = {}
+
+
+def _load_predictor():
+    """Real pipeline (M3) if available, otherwise the stub. Returns (predictor, scorer, name)."""
+    if not FORCE_STUB:
+        try:
+            from pathsnap.pipeline import PathSnapPredictor  # M3
+            from pathsnap.scoring import score_trip          # M3
+            predictor = PathSnapPredictor.load(str(ARTIFACTS))
+            name = "pathsnap"
+            card = ARTIFACTS / "model_card.json"
+            if card.exists():
+                name = json.loads(card.read_text()).get("model", name)
+            return predictor, score_trip, name
+        except Exception as e:  # missing module/artifacts -> keep serving with the stub
+            log.warning("Real predictor unavailable (%s: %s) -> using STUB predictor", type(e).__name__, e)
+    return StubPredictor.load(str(ARTIFACTS)), stub_score_trip, StubPredictor.name
+
+
+def _discover_trips() -> dict[str, Path]:
+    """trip_id -> folder, for every sub-folder of EVAL_DIR that contains <id>.track (no hardcoding)."""
+    trips = {}
+    if EVAL_DIR.is_dir():
+        for d in sorted(EVAL_DIR.iterdir()):
+            if d.is_dir() and (d / f"{d.name}.track").is_file():
+                trips[d.name] = d
+    return trips
+
+
+def _trip_summary(tid: str, d: Path) -> dict:
+    n, t_first, t_last = 0, None, None
+    with open(d / f"{tid}.track") as fh:
+        for line in fh:
+            parts = line.split()
+            if len(parts) >= 3:
+                n += 1
+                t = float(parts[2])
+                t_first = t if t_first is None else t_first
+                t_last = t
+    return {"trip_id": tid, "n_points": n,
+            "duration_s": round(t_last - t_first, 1) if n else 0.0}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    predictor, scorer, name = _load_predictor()
+    STATE.update(predictor=predictor, scorer=scorer, model=name)
+    trips = _discover_trips()
+    REQUEST_LOG.parent.mkdir(parents=True, exist_ok=True)
+    log.info("PathSnap API ready | model=%s | eval_dir=%s | trips=%d", name, EVAL_DIR, len(trips))
+    yield
+
+
+app = FastAPI(title="PathSnap Map-Matching API", version="1.0", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+class PredictRequest(BaseModel):
+    trip_id: str = Field(..., examples=["00000000"])
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "model": STATE.get("model"), "n_trips": len(_discover_trips()),
+            "eval_dir": str(EVAL_DIR)}
+
+
+@app.get("/trips")
+def trips():
+    found = _discover_trips()
+    return {"trips": [_trip_summary(tid, d) for tid, d in found.items()]}
+
+
+@app.post("/predict")
+def predict(req: PredictRequest, request: Request):
+    # sync endpoint -> FastAPI runs it in a threadpool, so the server stays responsive
+    found = _discover_trips()
+    if req.trip_id not in found:  # whitelist check also prevents path traversal
+        raise HTTPException(status_code=404, detail=f"unknown trip_id '{req.trip_id}'")
+    trip_dir = str(found[req.trip_id])
+    client = request.client.host if request.client else "?"
+    log.info("PREDICT start trip=%s from=%s", req.trip_id, client)
+
+    t0 = time.perf_counter()
+    try:
+        pred = STATE["predictor"].predict_trip(trip_dir)
+        t_pred = time.perf_counter()
+        metrics = STATE["scorer"](trip_dir, pred)
+    except Exception as e:
+        log.exception("PREDICT FAILED trip=%s", req.trip_id)
+        raise HTTPException(status_code=500, detail=f"prediction failed: {type(e).__name__}: {e}")
+    t_end = time.perf_counter()
+
+    pred_s, total_s = t_pred - t0, t_end - t0
+    fmt = lambda v: "n/a" if v is None else f"{v:.3f}"
+    log.info("PREDICT done  trip=%s from=%s n_points=%d model=%s top1_hmm=%s top1_clf=%s route_f1=%s "
+             "continuity=%s predict=%.2fs total=%.2fs",
+             req.trip_id, client, len(pred["gps_latlon"]), STATE["model"], fmt(metrics.get("top1_hmm")),
+             fmt(metrics.get("top1_clf")), fmt(metrics.get("route_f1")), fmt(metrics.get("continuity_hmm")),
+             pred_s, total_s)
+    with open(REQUEST_LOG, "a") as fh:
+        fh.write(json.dumps({"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "trip_id": req.trip_id,
+                             "client": client, "model": STATE["model"], "n_points": len(pred["gps_latlon"]),
+                             "metrics": metrics, "predict_s": round(pred_s, 3),
+                             "total_s": round(total_s, 3)}) + "\n")
+
+    return {
+        "trip_id": req.trip_id,
+        "model": STATE["model"],
+        "n_points": len(pred["gps_latlon"]),
+        "gps_latlon": pred["gps_latlon"],
+        "route_latlon": pred["route_latlon"],
+        "route_arcs": pred["route_arcs"],
+        "obs_arc": pred["obs_arc"],
+        "metrics": metrics,
+        "timings_ms": pred.get("timings_ms", {}) | {"scoring": round((t_end - t_pred) * 1000, 1),
+                                                    "server_total": round(total_s * 1000, 1)},
+    }

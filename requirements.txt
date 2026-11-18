@@ -1,22 +1,25 @@
-numpy
-pandas
-pyarrow
-scipy
-shapely>=2
-pyproj
-scikit-learn
-lightgbm
-xgboost
-optuna
-joblib
-networkx
-matplotlib
-seaborn
-folium
-fastapi
-uvicorn[standard]
-pydantic
-requests
-streamlit
-streamlit-folium
-tqdm
+# Python >= 3.10. Minimum versions; record exact ones on Laptop 1 with: pip freeze > results/api/env_laptop1.txt
+numpy>=1.26
+pandas>=2.1
+pyarrow>=14
+scipy>=1.11
+shapely>=2.0
+pyproj>=3.6
+scikit-learn>=1.4
+lightgbm>=4.1
+xgboost>=2.0
+optuna>=3.5
+joblib>=1.3
+networkx>=3.2
+matplotlib>=3.8
+seaborn>=0.13
+folium>=0.15
+# API (Laptop 1)
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.5
+# UI (Laptop 2)
+requests>=2.31
+streamlit>=1.45
+streamlit-folium>=0.20
+tqdm>=4.66
