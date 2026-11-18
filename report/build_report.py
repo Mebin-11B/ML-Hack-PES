@@ -1,7 +1,8 @@
 """M4 - Assemble report/sections/*.md into one self-contained HTML report.
 
-    python report/build_report.py
-    -> report/PathSnap_Report.html  (images embedded; open in a browser -> Print -> Save as PDF)
+    python report/build_report.py           -> report/PathSnap_Report.html (open in a browser -> Print -> Save as PDF)
+    python report/build_report.py --pdf     -> also report/PathSnap_Report.pdf (needs: pip install playwright &&
+                                               python -m playwright install chromium-headless-shell)
 
 Missing sections or figures are reported on the console and shown in red in the HTML,
 so nothing is silently left out. Nothing here generates numbers - it only assembles.
@@ -63,7 +64,11 @@ def main() -> int:
             problems.append(f"missing section: sections/{fname} ({label})")
             parts.append(f'<section><div class="missing">MISSING SECTION: {label}</div></section>')
             continue
-        md_text = embed_images(p.read_text(encoding="utf-8"), p.parent, problems)
+        raw = p.read_text(encoding="utf-8")
+        todo = sum(1 for line in raw.splitlines() if "WRITE (own words)" in line or "\u270d" in line)
+        if todo:
+            problems.append(f"{todo} unanswered 'WRITE (own words)' prompt(s) in sections/{fname}")
+        md_text = embed_images(raw, p.parent, problems)
         html = markdown.markdown(md_text, extensions=["tables", "fenced_code", "sane_lists"])
         parts.append(f"<section>{html}</section>")
 
@@ -71,6 +76,17 @@ def main() -> int:
     out.write_text("<!doctype html><html><head><meta charset='utf-8'><title>PathSnap Report</title>"
                    f"<style>{CSS}</style></head><body>{''.join(parts)}</body></html>", encoding="utf-8")
     print(f"wrote {out}  ({out.stat().st_size / 1e6:.1f} MB)")
+    if "--pdf" in sys.argv:
+        from playwright.sync_api import sync_playwright
+        pdf = out.with_suffix(".pdf")
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            page.goto(out.resolve().as_uri(), wait_until="load")
+            page.pdf(path=str(pdf), format="A4", print_background=True,
+                     margin={"top": "15mm", "bottom": "15mm", "left": "12mm", "right": "12mm"})
+            browser.close()
+        print(f"wrote {pdf}  ({pdf.stat().st_size / 1e6:.1f} MB)")
     if problems:
         print("\nTO FIX BEFORE SUBMITTING:")
         for x in problems:
