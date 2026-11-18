@@ -57,7 +57,7 @@ The terminal prints one `PREDICT start` and one `PREDICT done …` line per requ
 ```bash
 streamlit run ui/app.py --server.port 8501
 ```
-Enter `http://<L1-ZT-IP>:8000` in the sidebar. The badge turns green, the 10 trips are listed, and you can select one and press **Run map-matching**.
+Enter `http://<L1-ZT-IP>:8000` in the sidebar. The badge turns green. Choose the trip set (**Evaluator test**, the default, or **Student test**, our development split), select a trip and press **Run map-matching**. The session history records which trip set each run used.
 
 **Rehearsal (from Laptop 2):** `python api/smoke_test.py --api http://<L1-ZT-IP>:8000` runs every trip through the API and writes `results/api/latency_<host>.csv`.
 
@@ -66,8 +66,9 @@ Enter `http://<L1-ZT-IP>:8000` in the sidebar. The badge turns green, the 10 tri
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/health` | – | `{"status":"ok","model":…,"n_trips":…}` |
-| GET | `/trips` | – | `{"trips":[{"trip_id","n_points","duration_s"}]}` (discovered from the folder at runtime) |
-| POST | `/predict` | `{"trip_id":"…"}` | `trip_id, model, n_points, gps_latlon, route_latlon, route_arcs, obs_arc, metrics{top1_hmm, top1_clf, top1_hmm_undirected, route_precision, route_recall, route_f1, continuity_hmm, continuity_clf, n_breaks_hmm, n_valid_points}, timings_ms` |
+| GET | `/datasets` | – | trip sets and their sizes: `evaluator_test` (default, `data/evaluator_test/`) and `student_test` (`data/raw/student_test/`) |
+| GET | `/trips?dataset=…` | – | `{"trips":[{"trip_id","n_points","duration_s"}]}` (discovered from the folder at runtime) |
+| POST | `/predict` | `{"trip_id":"…","dataset":"evaluator_test"}` | `trip_id, model, n_points, gps_latlon, route_latlon, route_arcs, obs_arc, metrics{top1_hmm, top1_clf, top1_hmm_undirected, route_precision, route_recall, route_f1, continuity_hmm, continuity_clf, n_breaks_hmm, n_valid_points}, timings_ms` |
 
 Unknown trip IDs return 404; the check against the discovered trip list also blocks path traversal. If a trip has no `.route` file, every metric comes back as `null`.
 

@@ -53,45 +53,70 @@ if not connected:
     st.stop()
 
 
-# ---------------- trip selection ----------------
+# ---------------- dataset + trip selection ----------------
+DATASET_LABELS = {"evaluator_test": "Evaluator test trips (final evaluation)",
+                  "student_test": "Student test trips (our development split)"}
+
+
 @st.cache_data(ttl=30, show_spinner=False)
-def fetch_trips(base: str) -> pd.DataFrame:
-    r = requests.get(f"{base}/trips", timeout=10)
+def fetch_datasets(base: str) -> list[dict]:
+    try:
+        r = requests.get(f"{base}/datasets", timeout=10)
+        r.raise_for_status()
+        return [d for d in r.json()["datasets"] if d["n_trips"] > 0]
+    except Exception:  # older API without /datasets -> single default trip set
+        return [{"name": "evaluator_test", "n_trips": None}]
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def fetch_trips(base: str, dataset: str) -> pd.DataFrame:
+    r = requests.get(f"{base}/trips", params={"dataset": dataset}, timeout=10)
     r.raise_for_status()
     return pd.DataFrame(r.json()["trips"])
 
 
+available = fetch_datasets(api)
+if not available:
+    st.warning("The API reports no trips. Put the evaluation trips in the API's trip folders.")
+    st.stop()
+names = [d["name"] for d in available]
+dataset = st.radio("Trip set", names, horizontal=True,
+                   format_func=lambda n: DATASET_LABELS.get(n, n) + next(
+                       (f" — {d['n_trips']} trips" for d in available if d["name"] == n and d["n_trips"]), ""))
+
 try:
-    trips = fetch_trips(api)
+    trips = fetch_trips(api, dataset)
 except Exception as e:
     st.error(f"Could not load trips: {e}")
     st.stop()
 
 if trips.empty:
-    st.warning("The API reports no trips. Put the evaluation trips in the API's trip folder.")
+    st.warning(f"No trips in '{dataset}'.")
     st.stop()
 
 left, right = st.columns([1, 2])
 with left:
-    st.subheader(f"Evaluation trips ({len(trips)})")
+    st.subheader(f"{DATASET_LABELS.get(dataset, dataset).split(' (')[0]} ({len(trips)})")
     st.dataframe(trips.rename(columns={"trip_id": "Trip ID", "n_points": "GPS points",
                                        "duration_s": "Duration (s)"}),
                  hide_index=True, width="stretch")
-    trip_id = st.selectbox("Select a trip", trips["trip_id"].tolist())
+    trip_id = st.selectbox("Select a trip", trips["trip_id"].tolist(), key=f"trip_{dataset}")
     run = st.button("▶ Run map-matching", type="primary", width="stretch")
 
 if run:
-    with st.spinner(f"Laptop 1 is matching trip {trip_id} …"):
+    with st.spinner(f"Laptop 1 is matching trip {trip_id} ({dataset}) …"):
         t0 = time.perf_counter()
         try:
-            r = requests.post(f"{api}/predict", json={"trip_id": trip_id}, timeout=180)
+            r = requests.post(f"{api}/predict", json={"trip_id": trip_id, "dataset": dataset}, timeout=180)
             r.raise_for_status()
             res = r.json()
             res["_roundtrip_s"] = time.perf_counter() - t0
+            res.setdefault("dataset", dataset)
             st.session_state.result = res
             m = res.get("metrics", {})
             st.session_state.history.insert(0, {
-                "time": time.strftime("%H:%M:%S"), "trip": trip_id, "points": res["n_points"],
+                "time": time.strftime("%H:%M:%S"), "trip set": dataset, "trip": trip_id,
+                "points": res["n_points"],
                 "top1 (HMM)": m.get("top1_hmm"), "top1 (classifier)": m.get("top1_clf"),
                 "route F1": m.get("route_f1"), "continuity": m.get("continuity_hmm"),
                 "server s": round(res["timings_ms"].get("server_total", 0) / 1000, 2)})
@@ -111,7 +136,7 @@ with right:
         st.info("Pick a trip and press **Run map-matching**.")
     else:
         m = res.get("metrics", {})
-        st.subheader(f"Trip {res['trip_id']} · model: {res.get('model')}")
+        st.subheader(f"Trip {res['trip_id']} · {res.get('dataset', '')} · model: {res.get('model')}")
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Top-1 accuracy (HMM)", pct(m.get("top1_hmm")))
         c2.metric("Top-1 (classifier only)", pct(m.get("top1_clf")))

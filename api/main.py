@@ -2,14 +2,16 @@
 
 Endpoints
     GET  /health                 -> service status, model name, number of available trips
-    GET  /trips                  -> trips discovered at runtime in PATHSNAP_EVAL_DIR
-    POST /predict {"trip_id"}    -> full prediction pipeline + server-side scoring
+    GET  /datasets               -> available trip sets (evaluator_test, student_test) and sizes
+    GET  /trips?dataset=NAME     -> trips discovered at runtime in that trip set's folder
+    POST /predict {"trip_id", "dataset"} -> full prediction pipeline + server-side scoring
 
 Run (Laptop 1):
     uvicorn api.main:app --host 0.0.0.0 --port 8000
 
 Environment
-    PATHSNAP_EVAL_DIR   folder with one sub-folder per trip (default: data/evaluator_test)
+    PATHSNAP_EVAL_DIR    evaluator trips, one sub-folder per trip (default: data/evaluator_test)
+    PATHSNAP_STUDENT_DIR development trips, second trip set (default: data/raw/student_test)
     PATHSNAP_ARTIFACTS  model/config folder (default: artifacts)
     PATHSNAP_STUB=1     force the nearest-arc stub predictor (testing before the model exists)
 
@@ -37,6 +39,10 @@ sys.path.insert(0, str(ROOT))
 from api.stub import StubPredictor, stub_score_trip  # noqa: E402
 
 EVAL_DIR = Path(os.environ.get("PATHSNAP_EVAL_DIR", ROOT / "data" / "evaluator_test")).resolve()
+STUDENT_DIR = Path(os.environ.get("PATHSNAP_STUDENT_DIR", ROOT / "data" / "raw" / "student_test")).resolve()
+# selectable trip sets: the evaluator set (default, used for grading) and our development split
+DATASETS = {"evaluator_test": EVAL_DIR, "student_test": STUDENT_DIR}
+DEFAULT_DATASET = "evaluator_test"
 ARTIFACTS = Path(os.environ.get("PATHSNAP_ARTIFACTS", ROOT / "artifacts")).resolve()
 FORCE_STUB = os.environ.get("PATHSNAP_STUB", "0") == "1"
 REQUEST_LOG = ROOT / "results" / "api" / "requests.log"
@@ -65,11 +71,18 @@ def _load_predictor():
     return StubPredictor.load(str(ARTIFACTS)), stub_score_trip, StubPredictor.name
 
 
-def _discover_trips() -> dict[str, Path]:
-    """trip_id -> folder, for every sub-folder of EVAL_DIR that contains <id>.track (no hardcoding)."""
+def _dataset_dir(dataset: str) -> Path:
+    if dataset not in DATASETS:
+        raise HTTPException(status_code=404, detail=f"unknown dataset '{dataset}' (use one of {list(DATASETS)})")
+    return DATASETS[dataset]
+
+
+def _discover_trips(dataset: str = DEFAULT_DATASET) -> dict[str, Path]:
+    """trip_id -> folder, for every sub-folder of the dataset folder that contains <id>.track (no hardcoding)."""
     trips = {}
-    if EVAL_DIR.is_dir():
-        for d in sorted(EVAL_DIR.iterdir()):
+    base = _dataset_dir(dataset)
+    if base.is_dir():
+        for d in sorted(base.iterdir()):
             if d.is_dir() and (d / f"{d.name}.track").is_file():
                 trips[d.name] = d
     return trips
@@ -93,9 +106,10 @@ def _trip_summary(tid: str, d: Path) -> dict:
 async def lifespan(app: FastAPI):
     predictor, scorer, name = _load_predictor()
     STATE.update(predictor=predictor, scorer=scorer, model=name)
-    trips = _discover_trips()
     REQUEST_LOG.parent.mkdir(parents=True, exist_ok=True)
-    log.info("PathSnap API ready | model=%s | eval_dir=%s | trips=%d", name, EVAL_DIR, len(trips))
+    for ds, d in DATASETS.items():
+        log.info("PathSnap API ready | model=%s | dataset=%s | dir=%s | trips=%d",
+                 name, ds, d, len(_discover_trips(ds)))
     yield
 
 
@@ -105,29 +119,37 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 class PredictRequest(BaseModel):
     trip_id: str = Field(..., examples=["00000000"])
+    dataset: str = Field(DEFAULT_DATASET, examples=["evaluator_test", "student_test"])
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model": STATE.get("model"), "n_trips": len(_discover_trips()),
-            "eval_dir": str(EVAL_DIR)}
+    counts = {ds: len(_discover_trips(ds)) for ds in DATASETS}
+    return {"status": "ok", "model": STATE.get("model"), "n_trips": counts[DEFAULT_DATASET],
+            "datasets": counts, "eval_dir": str(EVAL_DIR)}
+
+
+@app.get("/datasets")
+def datasets():
+    return {"default": DEFAULT_DATASET,
+            "datasets": [{"name": ds, "n_trips": len(_discover_trips(ds))} for ds in DATASETS]}
 
 
 @app.get("/trips")
-def trips():
-    found = _discover_trips()
-    return {"trips": [_trip_summary(tid, d) for tid, d in found.items()]}
+def trips(dataset: str = DEFAULT_DATASET):
+    found = _discover_trips(dataset)
+    return {"dataset": dataset, "trips": [_trip_summary(tid, d) for tid, d in found.items()]}
 
 
 @app.post("/predict")
 def predict(req: PredictRequest, request: Request):
     # sync endpoint -> FastAPI runs it in a threadpool, so the server stays responsive
-    found = _discover_trips()
+    found = _discover_trips(req.dataset)
     if req.trip_id not in found:  # whitelist check also prevents path traversal
-        raise HTTPException(status_code=404, detail=f"unknown trip_id '{req.trip_id}'")
+        raise HTTPException(status_code=404, detail=f"unknown trip_id '{req.trip_id}' in dataset '{req.dataset}'")
     trip_dir = str(found[req.trip_id])
     client = request.client.host if request.client else "?"
-    log.info("PREDICT start trip=%s from=%s", req.trip_id, client)
+    log.info("PREDICT start dataset=%s trip=%s from=%s", req.dataset, req.trip_id, client)
 
     t0 = time.perf_counter()
     try:
@@ -141,19 +163,20 @@ def predict(req: PredictRequest, request: Request):
 
     pred_s, total_s = t_pred - t0, t_end - t0
     fmt = lambda v: "n/a" if v is None else f"{v:.3f}"
-    log.info("PREDICT done  trip=%s from=%s n_points=%d model=%s top1_hmm=%s top1_clf=%s route_f1=%s "
+    log.info("PREDICT done  dataset=%s trip=%s from=%s n_points=%d model=%s top1_hmm=%s top1_clf=%s route_f1=%s "
              "continuity=%s predict=%.2fs total=%.2fs",
-             req.trip_id, client, len(pred["gps_latlon"]), STATE["model"], fmt(metrics.get("top1_hmm")),
+             req.dataset, req.trip_id, client, len(pred["gps_latlon"]), STATE["model"], fmt(metrics.get("top1_hmm")),
              fmt(metrics.get("top1_clf")), fmt(metrics.get("route_f1")), fmt(metrics.get("continuity_hmm")),
              pred_s, total_s)
     with open(REQUEST_LOG, "a") as fh:
-        fh.write(json.dumps({"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "trip_id": req.trip_id,
+        fh.write(json.dumps({"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "dataset": req.dataset, "trip_id": req.trip_id,
                              "client": client, "model": STATE["model"], "n_points": len(pred["gps_latlon"]),
                              "metrics": metrics, "predict_s": round(pred_s, 3),
                              "total_s": round(total_s, 3)}) + "\n")
 
     return {
         "trip_id": req.trip_id,
+        "dataset": req.dataset,
         "model": STATE["model"],
         "n_points": len(pred["gps_latlon"]),
         "gps_latlon": pred["gps_latlon"],

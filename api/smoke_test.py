@@ -1,7 +1,7 @@
 """M4 - End-to-end API rehearsal: call /health, /trips and /predict for every trip.
 
 Run from Laptop 2 (over ZeroTier) or Laptop 1 (localhost):
-    python api/smoke_test.py --api http://<laptop1-zerotier-ip>:8000
+    python api/smoke_test.py --api http://<laptop1-zerotier-ip>:8000 [--dataset evaluator_test|student_test|all]
 Writes results/api/latency_<host>.csv and exits non-zero if any trip fails.
 """
 from __future__ import annotations
@@ -20,37 +20,43 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--api", default="http://127.0.0.1:8000")
     ap.add_argument("--timeout", type=float, default=180)
+    ap.add_argument("--dataset", default="evaluator_test", help="evaluator_test | student_test | all")
     args = ap.parse_args()
     api = args.api.rstrip("/")
 
     t0 = time.perf_counter()
     h = requests.get(f"{api}/health", timeout=10).json()
     print(f"health: {h}  ({(time.perf_counter() - t0) * 1000:.0f} ms)")
-    trips = requests.get(f"{api}/trips", timeout=30).json()["trips"]
-    print(f"trips: {len(trips)}")
+    names = ([d["name"] for d in requests.get(f"{api}/datasets", timeout=10).json()["datasets"]]
+             if args.dataset == "all" else [args.dataset])
+    trips = []
+    for ds in names:
+        found = requests.get(f"{api}/trips", params={"dataset": ds}, timeout=30).json()["trips"]
+        trips += [dict(t, dataset=ds) for t in found]
+        print(f"{ds}: {len(found)} trips")
 
     rows, failures = [], 0
     for t in trips:
-        tid = t["trip_id"]
+        tid, ds = t["trip_id"], t["dataset"]
         t0 = time.perf_counter()
         try:
-            r = requests.post(f"{api}/predict", json={"trip_id": tid}, timeout=args.timeout)
+            r = requests.post(f"{api}/predict", json={"trip_id": tid, "dataset": ds}, timeout=args.timeout)
             r.raise_for_status()
             res = r.json()
             rt = time.perf_counter() - t0
             m = res.get("metrics", {})
-            rows.append({"trip_id": tid, "n_points": res["n_points"], "model": res.get("model"),
+            rows.append({"dataset": ds, "trip_id": tid, "n_points": res["n_points"], "model": res.get("model"),
                          "top1_hmm": m.get("top1_hmm"), "top1_clf": m.get("top1_clf"),
                          "route_f1": m.get("route_f1"), "continuity_hmm": m.get("continuity_hmm"),
                          "server_s": round(res["timings_ms"].get("server_total", 0) / 1000, 3),
                          "roundtrip_s": round(rt, 3), "response_kb": round(len(r.content) / 1024, 1),
                          "status": "ok"})
-            print(f"  {tid}: ok  points={res['n_points']:>6}  top1={m.get('top1_hmm')}  "
+            print(f"  {ds}/{tid}: ok  points={res['n_points']:>6}  top1={m.get('top1_hmm')}  "
                   f"server={rows[-1]['server_s']}s  roundtrip={rt:.2f}s")
         except Exception as e:
             failures += 1
-            rows.append({"trip_id": tid, "status": f"FAIL {type(e).__name__}: {e}"})
-            print(f"  {tid}: FAIL {e}")
+            rows.append({"dataset": ds, "trip_id": tid, "status": f"FAIL {type(e).__name__}: {e}"})
+            print(f"  {ds}/{tid}: FAIL {e}")
 
     out = Path(__file__).resolve().parents[1] / "results" / "api" / f"latency_{socket.gethostname()}.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
