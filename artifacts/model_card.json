@@ -1,12 +1,18 @@
 {
-  "model": "lgbm (untuned)",
+  "model": "lgbm (tuned)",
   "model_key": "lgbm",
   "family": "boosting (LightGBM)",
-  "variant": "untuned",
+  "variant": "tuned",
   "params": {
-    "n_estimators": 500,
-    "learning_rate": 0.05,
-    "num_leaves": 31
+    "n_estimators": 2000,
+    "learning_rate": 0.026541372792969226,
+    "num_leaves": 185,
+    "min_child_samples": 19,
+    "colsample_bytree": 0.8394943247153117,
+    "subsample": 0.7446055250229716,
+    "subsample_freq": 1,
+    "reg_alpha": 0.0018666534433706083,
+    "reg_lambda": 0.0032744431741189976
   },
   "feature_list": [
     "dist_m",
@@ -35,42 +41,42 @@
   ],
   "feature_list_sha256": "411e583c7efce552297138701f3ca0ca355b5e13182535efea16bf6f5f29a130",
   "cv": {
-    "cv_top1_mean": 0.8999815205932531,
-    "cv_top1_std": 0.02420478237683875,
-    "cv_macro_f1_mean": 0.9402980632042448,
-    "cv_macro_f1_std": 0.012870375226102133,
-    "cv_logloss": 0.05416164465455085,
-    "n_folds": 5,
-    "obs_every": 4,
-    "tag": "v0"
+    "best_value": 0.918597990856224,
+    "objective": "mean GroupKFold obs top1",
+    "cv_top1": 0.918597990856224,
+    "cv_logloss": 0.0403812475549267,
+    "cv_macro_f1": 0.9511865563878418,
+    "n_trials": 50,
+    "folds": 3,
+    "obs_every": 4
   },
   "student_test": {
-    "st_top1": 0.8830520060998054,
-    "st_undirected_top1": 0.9493610979649787,
-    "st_miss_rate": null,
-    "st_macro_f1": 0.9298199859894385,
-    "st_precision": 0.8777516563368241,
-    "st_recall": 0.8638586527843508,
-    "st_logloss": 0.0536053873031576,
-    "route_continuity": 0.7364638236703402,
-    "route_breaks": 1100
+    "st_top1": 0.9147906585314538,
+    "st_undirected_top1": 0.9525562802440564,
+    "st_miss_rate": 0.0,
+    "st_macro_f1": 0.9512575527462912,
+    "st_precision": 0.9149705053940586,
+    "st_recall": 0.9055859457184936,
+    "st_logloss": 0.036352579574554414,
+    "route_continuity": 0.8022064617809299,
+    "route_breaks": 753
   },
   "st_confusion_thr0.5": [
     [
-      217053,
-      2288
+      217648,
+      1600
     ],
     [
-      2589,
-      16428
+      1795,
+      17217
     ]
   ],
-  "n_train_rows": 2066706,
+  "n_train_rows": 2064331,
   "obs_every": 1,
-  "train_time_s": 6.958981299991137,
-  "infer_ms_per_1k": 0.5933737754562994,
-  "best_iteration": 173,
-  "train_date": "2026-11-18T12:09:43",
+  "train_time_s": 39.6784895999881,
+  "infer_ms_per_1k": 3.498137130579069,
+  "best_iteration": 360,
+  "train_date": "2026-11-18T12:55:04",
   "seed": 42,
   "library_versions": {
     "python": "3.11.9",
@@ -84,6 +90,6 @@
   },
   "toy": false,
   "train_device": "cpu",
-  "label_source": "train=fallback_nearest_route_arc; student_test=fallback_nearest_route_arc",
-  "notes": "Labels are M1's fallback (nearest route arc) because M3's route alignment was not yet available: candidate miss rate is 0 by construction and is not reported. Rebuild the parquets and re-export once M3's labels.py is in."
+  "label_source": "train=M3_alignment; student_test=M3_alignment",
+  "notes": ""
 }
