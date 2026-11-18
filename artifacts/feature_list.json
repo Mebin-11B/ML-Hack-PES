@@ -1,0 +1,94 @@
+[
+  {
+    "name": "dist_m",
+    "why": "Perpendicular distance GPS point -> arc segment. Right arc is usually the closest."
+  },
+  {
+    "name": "dist_rank",
+    "why": "Rank of this candidate by distance within the observation (0 = nearest)."
+  },
+  {
+    "name": "dist_minus_min",
+    "why": "dist minus the nearest candidate's dist: relative closeness, comparable across noisy/clean trips."
+  },
+  {
+    "name": "dist_ratio",
+    "why": "dist / (min dist + 1): scale-free closeness."
+  },
+  {
+    "name": "n_cands",
+    "why": "Number of candidates for this observation (junction / dense-network indicator)."
+  },
+  {
+    "name": "heading_cos",
+    "why": "cos(GPS heading - arc bearing): +1 same direction, -1 reverse twin. Separates the two directed arcs of a two-way road."
+  },
+  {
+    "name": "heading_sin_abs",
+    "why": "|sin(heading diff)|: how perpendicular the motion is to the arc (cross streets at junctions)."
+  },
+  {
+    "name": "speed_mps",
+    "why": "Speed from the +-2 point window; lets the model learn heading is unreliable when slow."
+  },
+  {
+    "name": "arc_len_m",
+    "why": "Arc length: short arcs near junctions behave differently from long road segments."
+  },
+  {
+    "name": "proj_frac",
+    "why": "Where along the arc the point projects (0 start .. 1 end)."
+  },
+  {
+    "name": "dist_to_end_m",
+    "why": "Metres from the projection to the arc's downstream end (about to turn / leave the arc)."
+  },
+  {
+    "name": "has_twin",
+    "why": "Reverse arc exists (about 92% of arcs): direction matters for these."
+  },
+  {
+    "name": "win2_mean_dist",
+    "why": "Mean distance of points i-2..i+2 to this arc: temporal consistency, damps single-point noise."
+  },
+  {
+    "name": "win5_mean_dist",
+    "why": "Same over i-5..i+5: the true arc stays close for the whole window, wrong arcs drift away."
+  },
+  {
+    "name": "win5_rel",
+    "why": "win5_mean_dist minus the best candidate's win5_mean_dist for this observation (relative window fit)."
+  },
+  {
+    "name": "win5_heading_cos",
+    "why": "Mean heading agreement with this arc over the window: more robust than a single noisy heading."
+  },
+  {
+    "name": "from_deg",
+    "why": "Degree of the arc's start node (intersection complexity)."
+  },
+  {
+    "name": "to_deg",
+    "why": "Degree of the arc's end node (intersection complexity)."
+  },
+  {
+    "name": "dt_prev",
+    "why": "Seconds since previous fix (sampling irregularity)."
+  },
+  {
+    "name": "dt_next",
+    "why": "Seconds to next fix."
+  },
+  {
+    "name": "gap_flag",
+    "why": "1 if a neighbouring step is a gap (> 10 s): window/heading features are weaker there."
+  },
+  {
+    "name": "accel",
+    "why": "Acceleration (m/s^2) from the speed series: stops/starts happen at junctions."
+  },
+  {
+    "name": "dist_z",
+    "why": "dist / per-trip GPS-noise estimate (median nearest-arc distance, label-free): noise-normalised distance."
+  }
+]
