@@ -23,3 +23,5 @@ requests>=2.31
 streamlit>=1.45
 streamlit-folium>=0.20
 tqdm>=4.66
+# report assembly (report/build_report.py); map screenshots additionally need: pip install playwright
+markdown>=3.5
