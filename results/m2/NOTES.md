@@ -46,6 +46,6 @@
 - **v1 sweep (`model_comparison_v1.csv`, `metrics_summary_v1.csv`, `cv_folds_v1.csv`):** 9 models, 5-fold GroupKFold,
   every 4th GPS point, M3 labels, M3 metrics. Top four are tied on CV Top-1 (hgb 0.9138, lgbm 0.9137, rf 0.9136,
   xgb 0.9130; per-fold head-to-head lgbm vs hgb 2/5, vs rf 2/5, vs xgb 3/5). Selection rule tie-break → LightGBM has
-  the lowest CV log loss (0.0407 vs 0.0410 / 0.0419 / 0.0412), the smallest train–CV gap among the four
-  (0.029 vs 0.045 hgb, 0.057 rf) and is faster than hgb/rf. **LightGBM confirmed** → tuned LightGBM stays in `artifacts/`.
+  the lowest CV log loss (0.0407 vs 0.0410 / 0.0419 / 0.0412), a small train–CV gap
+  (0.0294 vs 0.0445 hgb, 0.0568 rf; xgb slightly smaller at 0.0289) and is faster than hgb/rf. **LightGBM confirmed** → tuned LightGBM stays in `artifacts/`.
   student_test is not used for selection (hgb has the highest ST Top-1, 0.9185 vs 0.9162).
