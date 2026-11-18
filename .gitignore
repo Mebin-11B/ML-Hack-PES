@@ -29,3 +29,6 @@ docs/
 # M2: synthetic smoke-test output (never reported) + regenerable per-model predictions
 results/m2/toy/
 results/m2/preds/
+
+# built report (submitted as PDF separately)
+report/PathSnap_Report.html
