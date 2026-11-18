@@ -233,7 +233,21 @@ def cap_rows_by_obs(df: pd.DataFrame, max_rows: int | None, seed: int = RANDOM_S
 # --------------------------------------------------------------------------- #
 # Metrics (FROZEN definitions, team overview §6.6)
 # --------------------------------------------------------------------------- #
+try:  # M3's shared definitions (src/pathsnap/metrics.py) — used whenever available
+    from pathsnap import metrics as team_metrics
+    _ = (team_metrics.pair_metrics, team_metrics.top1_accuracy)
+except (ImportError, AttributeError):  # pragma: no cover
+    team_metrics = None
+
+
 def pair_metrics(y: np.ndarray, p: np.ndarray, thr: float = 0.5) -> dict:
+    """Pair-level metrics at threshold 0.5. Delegates to M3's metrics.pair_metrics (verified identical,
+    except log-loss clipping: team uses 1e-9). Confusion matrix always 2x2 ([[TN, FP], [FN, TP]])."""
+    if team_metrics is not None and thr == 0.5:
+        r = team_metrics.pair_metrics(y, p)
+        return {"accuracy": r["acc"], "precision": r["precision"], "recall": r["recall"], "f1": r["f1"],
+                "macro_f1": r["macro_f1"], "logloss": r["logloss"],
+                "confusion": confusion_matrix(y, (np.asarray(p) >= thr).astype(int), labels=[0, 1]).tolist()}
     yhat = (p >= thr).astype(int)
     return {
         "accuracy": accuracy_score(y, yhat),
@@ -259,7 +273,9 @@ def obs_metrics(df: pd.DataFrame, p: np.ndarray, twin_maps: dict | None = None) 
     ``df`` must contain only label_valid rows."""
     best = argmax_per_obs(df, p)
     correct = best["arc_id"].to_numpy() == best["gt_arc"].to_numpy()
-    out = {"top1": float(correct.mean()), "n_obs": int(len(best))}
+    top1 = (team_metrics.top1_accuracy(best["arc_id"], best["gt_arc"], np.ones(len(best), bool))
+            if team_metrics is not None else float(correct.mean()))
+    out = {"top1": float(top1), "n_obs": int(len(best))}  # pooled over all valid observations
     out["miss_rate"] = float(1.0 - df.groupby(KEYS)["label"].max().mean())
     if twin_maps:
         und = correct.copy()
