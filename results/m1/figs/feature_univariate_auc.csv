@@ -1,0 +1,24 @@
+feature,auc,strength,direction
+dist_rank,0.0475449979513505,0.9524550020486495,lower = more likely true arc
+dist_minus_min,0.04838963374148749,0.9516103662585125,lower = more likely true arc
+dist_ratio,0.05891275969172547,0.9410872403082745,lower = more likely true arc
+win5_rel,0.06884167875112934,0.9311583212488707,lower = more likely true arc
+dist_m,0.07117737971343818,0.9288226202865618,lower = more likely true arc
+dist_z,0.07206090084219763,0.9279390991578024,lower = more likely true arc
+win2_mean_dist,0.07935784133497824,0.9206421586650217,lower = more likely true arc
+win5_mean_dist,0.15655745423057615,0.8434425457694239,lower = more likely true arc
+win5_heading_cos,0.8249706241116606,0.8249706241116606,higher = more likely true arc
+heading_cos,0.8118309610928118,0.8118309610928118,higher = more likely true arc
+dist_to_end_m,0.7305570976440582,0.7305570976440582,higher = more likely true arc
+arc_len_m,0.7286718629601,0.7286718629601,higher = more likely true arc
+heading_sin_abs,0.3100709128318769,0.6899290871681232,lower = more likely true arc
+n_cands,0.3603729942455053,0.6396270057544947,lower = more likely true arc
+has_twin,0.4189268551968771,0.5810731448031229,lower = more likely true arc
+speed_mps,0.5352541207566843,0.5352541207566843,higher = more likely true arc
+from_deg,0.5109743100982546,0.5109743100982546,higher = more likely true arc
+to_deg,0.4895332538241543,0.5104667461758456,lower = more likely true arc
+proj_frac,0.501246259925587,0.501246259925587,higher = more likely true arc
+gap_flag,0.49923737078779945,0.5007626292122005,lower = more likely true arc
+dt_prev,0.49982425481585796,0.500175745184142,lower = more likely true arc
+dt_next,0.4998647385401465,0.5001352614598535,lower = more likely true arc
+accel,0.5000148221554733,0.5000148221554733,higher = more likely true arc
