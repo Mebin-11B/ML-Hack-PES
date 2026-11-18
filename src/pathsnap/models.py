@@ -147,9 +147,12 @@ def fit_model(spec: ModelSpec, est, X: pd.DataFrame, y: np.ndarray, groups: np.n
         tr, va = next(inner.split(X, y, groups))
         Xtr, ytr, Xva, yva = X.iloc[tr], y[tr], X.iloc[va], y[va]
         if spec.early_stop == "lgbm":
-            est.fit(Xtr, ytr, eval_set=[(Xtr, ytr), (Xva, yva)], eval_names=["train", "valid"],
-                    eval_metric="binary_logloss",
-                    callbacks=[lgb.early_stopping(30, verbose=False), lgb.log_evaluation(0)])
+            kw = dict(eval_names=["train", "valid"], eval_metric="binary_logloss",
+                      callbacks=[lgb.early_stopping(30, verbose=False), lgb.log_evaluation(0)])
+            try:  # LightGBM >= 4.7 API
+                est.fit(Xtr, ytr, eval_X=(Xtr, Xva), eval_y=(ytr, yva), **kw)
+            except TypeError:  # older LightGBM (team minimum is 4.1)
+                est.fit(Xtr, ytr, eval_set=[(Xtr, ytr), (Xva, yva)], **kw)
         else:
             est.fit(Xtr, ytr, eval_set=[(Xtr, ytr), (Xva, yva)], verbose=False)
     else:
